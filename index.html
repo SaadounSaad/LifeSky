@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>MoodSky - Mood Tracker</title>
+
+  <!-- 📁 Lien vers le manifeste -->
+  <link rel="manifest" href="/manifest.json" />
+
+  <!-- 🎨 Couleur de la barre d'état -->
+  <meta name="theme-color" content="#3B82F6" />
+
+  <!-- 📱 Support iOS -->
+  <link rel="apple-touch-icon" href="/icons/icon-192x192.png" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+
+  <!-- CSS principal -->
+  <link rel="stylesheet" href="./styles.css">
+</head>
+<body>
+  <div id="root"></div>
+
+  <!-- ⚡ Votre JS principal -->
+  <script type="module" src="/src/main.jsx"></script>
+
+
+
+  <!-- ✅ Enregistrement du Service Worker -->
+  <script>
+    if ('serviceWorker' in navigator) {
+      window.addEventListener('load', () => {
+        navigator.serviceWorker
+          .register('/sw.js') // 👈 Service Worker à la racine
+          .then(registration => {
+            console.log("✅ Service Worker enregistré :", registration);
+          })
+          .catch(error => {
+            console.error("❌ Erreur Service Worker :", error);
+          });
+      });
+    }
+  </script>
+</body>
+</html>

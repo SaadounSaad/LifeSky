@@ -1,0 +1,380 @@
+/* 🌎 Empêcher le défilement horizontal */
+body {
+  overflow-x: hidden;
+  margin: 0;
+  padding: 0;
+  font-family: Arial, sans-serif;
+}
+
+/* 📌 Mise en page générale */
+.container {
+  max-width: 100%;
+  padding: 10px;
+  box-sizing: border-box;
+}
+
+/* 📌 Titre */
+h1 {
+  font-size: 24px;
+  color: #222;
+  font-weight: bold;
+  margin-bottom: 10px;
+  text-align: center;
+}
+
+/* ⏰ Affichage de l'heure */
+.time-display {
+  font-size: 16px;
+  color: #007bff;
+  font-weight: bold;
+  margin: 15px auto;
+  text-align: center;
+}
+
+/* 🎛️ Curseurs organisés en colonnes (optimisé pour mobile) */
+.sliders {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); /* 📌 Responsive */
+  gap: 5px;
+  justify-content: center;
+  align-items: center;
+  margin-bottom: 25px;
+}
+
+.slider-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  font-weight: bold;
+  gap: 3px;
+  font-size: 14px;
+}
+
+input[type='range'] {
+  width: 100%;
+  cursor: pointer;
+  accent-color: #007bff;
+}
+
+/* 🖼️ Section des émotions */
+.emotion-selection {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 10px;
+}
+
+.emotion-selection img {
+  width: 30px;
+  height: 30px;
+  object-fit: contain;
+  transition: transform 0.3s ease-in-out;
+  max-width: 100%;
+}
+
+.emotion-selection img:hover {
+  transform: scale(2.3);
+}
+
+.emotion-selection img.selected {
+  border: 3px solid #0056b3;
+  transform: scale(1.15);
+}
+
+/* 📜 Zone de définition des émotions */
+.emotion-definition {
+  font-size: 16px;
+  color: #333;
+  text-align: right;
+  margin-top: 12px;
+  padding: 10px;
+  border: 1px solid #ddd;
+  border-radius: 8px;
+  background-color: #ffffff;
+  max-width: 90%;
+  word-wrap: break-word;
+  margin-left: auto;
+  margin-right: auto;
+}
+
+/* 📝 Zone de commentaire */
+.comment-box {
+  width: 100%;
+  height: 100px;
+  padding: 10px;
+  border: 1px solid #ddd;
+  border-radius: 5px;
+  text-align: center;
+  resize: none;
+}
+
+/* ✅ Bouton d'enregistrement */
+.save-button {
+  background-color: #007bff;
+  color: white;
+  border: none;
+  padding: 10px;
+  width: 90%;
+  max-width: 300px;
+  border-radius: 5px;
+  cursor: pointer;
+  transition: background 0.3s;
+  display: block;
+  margin: 10px auto;
+}
+
+.save-button:hover {
+  background-color: #0056b3;
+}
+
+/* 🎉 Message de confirmation */
+.success-message {
+  color: green;
+  font-size: 16px;
+  margin-top: 10px;
+  font-weight: bold;
+  text-align: center;
+  animation: fadeIn 0.5s ease-in-out;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+/* ❌ Bouton pour vider les données locales */
+.clear-button {
+  background-color: red;
+  color: white;
+  border: none;
+  padding: 10px;
+  width: 90%;
+  max-width: 300px;
+  border-radius: 5px;
+  cursor: pointer;
+  transition: background 0.3s;
+  display: block;
+  margin: 10px auto;
+}
+
+.clear-button:hover {
+  background-color: darkred;
+}
+
+/* 📱✨ Adaptations pour les petits écrans */
+@media screen and (max-width: 768px) {
+  .container {
+    padding: 5px;
+  }
+
+  .sliders {
+    grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); /* 📌 Optimisé mobile */
+  }
+
+  .emotion-selection img {
+    width: 60px;
+    height: 60px;
+  }
+
+  .comment-box {
+    height: 80px;
+  }
+
+  h1 {
+    font-size: 20px;
+  }
+
+  .save-button, .clear-button {
+    width: 100%;
+  }
+}
+
+/* 🌟 Section étoiles en 2 colonnes */
+.star-sliders {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr); /* 📌 2 colonnes */
+  gap: 10px;
+  justify-content: center;
+  align-items: center;
+  margin-bottom: 25px;
+}
+
+/* 📌 Ajustement des éléments */
+.star-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  font-weight: bold;
+  font-size: 14px;
+  text-align: center;
+}
+
+/* ⭐ Icônes étoiles */
+.star-rating {
+  display: flex;
+  justify-content: center;
+  gap: 3px; /* 📌 Espacement réduit entre les étoiles */
+}
+
+/* 📱✨ Optimisation pour mobile */
+@media screen and (max-width: 768px) {
+  .star-sliders {
+    grid-template-columns: repeat(2, 1fr); /* 📌 Toujours 2 colonnes */
+    gap: 5px;
+  }
+
+  .star-rating {
+    gap: 2px;
+  }
+
+  .star-item p {
+    font-size: 13px; /* 📌 Réduction du texte */
+  }
+}
+
+/* 🌟 Section étoiles en 2 colonnes */
+.star-sliders {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr); /* 📌 2 colonnes */
+  gap: 10px;
+  justify-content: center;
+  align-items: center;
+  margin-bottom: 25px;
+}
+
+/* 📌 Ajustement des éléments */
+.star-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  font-weight: bold;
+  font-size: 14px;
+  text-align: center;
+}
+
+/* 📌 Icônes des catégories (Spiritualité, Sommeil, etc.) */
+.rating-icon {
+  width: 30px;  /* 📌 Taille ajustée */
+  height: 30px;
+  margin-bottom: 5px;
+}
+
+/* ⭐ Icônes étoiles */
+.star-rating {
+  display: flex;
+  justify-content: center;
+  gap: 3px; /* 📌 Espacement réduit entre les étoiles */
+}
+
+/* 📱✨ Optimisation pour mobile */
+@media screen and (max-width: 768px) {
+  .star-sliders {
+    grid-template-columns: repeat(2, 1fr); /* 📌 Toujours 2 colonnes */
+    gap: 5px;
+  }
+
+  .rating-icon {
+    width: 24px;
+    height: 24px;
+  }
+
+  .star-rating {
+    gap: 2px;
+  }
+
+  .star-item p {
+    font-size: 13px; /* 📌 Réduction du texte */
+  }
+}
+
+/* 🌟 Section étoiles en 2 colonnes */
+.star-sliders {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr); /* 📌 2 colonnes */
+  gap: 20px; /* ✅ Espacement amélioré */
+  justify-content: center;
+  align-items: center;
+  margin-bottom: 25px;
+}
+
+/* 📌 Ajustement des éléments */
+.star-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  font-weight: bold;
+  font-size: 14px;
+  text-align: center;
+}
+
+/* 📌 Regrouper icône + texte sur une seule ligne */
+.icon-label {
+  display: flex;
+  align-items: center;
+  gap: 8px; /* ✅ Espacement entre l’icône et le texte */
+  justify-content: center;
+}
+
+/* 📌 Icônes des catégories (Spiritualité, Sommeil, etc.) */
+.rating-icon {
+  width: 25px;  /* ✅ Taille plus harmonieuse */
+  height: 25px;
+}
+
+/* ⭐ Icônes étoiles */
+.star-rating {
+  display: flex;
+  justify-content: center;
+  gap: 5px; /* ✅ Espacement amélioré */
+}
+
+/* 📱✨ Optimisation pour mobile */
+@media screen and (max-width: 768px) {
+  .star-sliders {
+    grid-template-columns: repeat(2, 1fr); /* 📌 Toujours 2 colonnes */
+    gap: 10px;
+  }
+
+  .icon-label {
+    gap: 5px;
+  }
+
+  .rating-icon {
+    width: 20px;
+    height: 20px;
+  }
+
+  .star-rating {
+    gap: 3px;
+  }
+
+  .star-item p {
+    font-size: 13px;
+  }
+}
+/* 📌 Organisation des émotions */
+.emotion-selection {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 10px;
+}
+
+/* 📌 Chaque émotion avec son label */
+.emotion-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+}
+
+/* 📌 Ajustement du label en petit caractère */
+.emotion-label {
+  font-size: 10px;  /* ✅ Taille réduite */
+  color: #666;  /* ✅ Couleur plus discrète */
+  margin-top: 3px;
+}
+/* 📌 Désactive le zoom sur la zone de texte en fixant la taille de la police */
+.comment-box {
+  font-size: 16px;
+}
