@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { FaStar, FaChartBar, FaPrayingHands, FaHeartbeat, FaHistory, FaCog, FaCloudUploadAlt, 
          FaMoon, FaSun, FaSyncAlt, FaCalendarAlt, FaEdit, FaPlus, FaChevronLeft, FaChevronRight, 
          FaAngleDoubleRight, FaAngleDoubleLeft, FaDownload, FaFilePdf } from "react-icons/fa";
@@ -298,42 +298,67 @@ const LifeSkyApp = () => {
 
   // Fonction pour charger les données d'une date spécifique
   const loadEntryForDate = async (date) => {
-    setLoadingEntry(true);
-    
-    console.log(`Chargement des données pour la date: ${date}`);
-    
-    if (isOnline) {
-      try {
-        const { data, error } = await supabase
-          .from('mood_entries')
-          .select('*')
-          .eq('date', date);
+  setLoadingEntry(true);
+  
+  console.log(`🔍 Chargement des données pour la date: ${date}`);
+  
+  // D'abord chercher dans l'état local actuel
+  const existingEntry = entries.find(entry => entry.date === date);
+  if (existingEntry) {
+    console.log('✅ Entrée trouvée dans l\'état local:', existingEntry);
+    populateFormWithData(existingEntry);
+    setIsEditMode(true);
+    setLoadingEntry(false);
+    return;
+  }
+  
+  if (isOnline) {
+    try {
+      const { data, error } = await supabase
+        .from('mood_entries')
+        .select('*')
+        .eq('date', date);
+      
+      console.log("📡 Résultat de la requête Supabase:", data, error);
+      
+      if (error) {
+        console.error('❌ Erreur lors du chargement:', error);
+        loadFromLocalStorage(date);
+      } else if (data && data.length > 0) {
+        console.log('✅ Données trouvées dans Supabase:', data[0]);
+        populateFormWithData(data[0]);
+        setIsEditMode(true);
         
-        console.log("Résultat de la requête:", data, error);
+        // 🔥 Mettre à jour l'état local immédiatement
+        updateEntriesState(data[0], true);
+      } else {
+        console.log(`❌ Aucune entrée trouvée pour ${date} dans Supabase`);
+        // Vérifier localStorage comme fallback
+        const localEntries = JSON.parse(localStorage.getItem('moodEntries')) || [];
+        const localEntry = localEntries.find(e => e.date === date);
         
-        if (error) {
-          console.error('Erreur lors du chargement:', error);
-          loadFromLocalStorage(date);
-        } else if (data && data.length > 0) {
-          console.log('Données trouvées dans Supabase:', data[0]);
-          populateFormWithData(data[0]);
+        if (localEntry) {
+          console.log('✅ Entrée trouvée dans localStorage:', localEntry);
+          populateFormWithData(localEntry);
           setIsEditMode(true);
+          updateEntriesState(localEntry, true);
         } else {
-          console.log(`Aucune entrée trouvée pour ${date}`);
+          console.log(`❌ Aucune entrée trouvée pour ${date} - nouveau mode`);
           resetFields();
           setIsEditMode(false);
         }
-      } catch (error) {
-        console.error('Erreur lors de la recherche Supabase:', error);
-        loadFromLocalStorage(date);
       }
-    } else {
-      // Mode hors ligne - chercher dans localStorage
+    } catch (error) {
+      console.error('❌ Erreur lors de la recherche Supabase:', error);
       loadFromLocalStorage(date);
     }
-    
-    setLoadingEntry(false);
-  };
+  } else {
+    loadFromLocalStorage(date);
+  }
+  
+  setLoadingEntry(false);
+};
+
 
   // Fonction pour charger depuis localStorage
   const loadFromLocalStorage = (date) => {
@@ -540,339 +565,405 @@ const handleEmotionClick = async (emotionName) => {
 
   // Fonction de sauvegarde d'une entrée avec feedback visuel
   const handleSave = async () => {
-    if (!mood) {
-      setIsErrorMessage(true);
-      setSuccessMessage("الرجاء اختيار العاطفة");
-      setTimeout(() => {
-        setSuccessMessage("");
-        setIsErrorMessage(false);
-      }, 3000);
-      return;
+  if (!mood) {
+    setIsErrorMessage(true);
+    setSuccessMessage("الرجاء اختيار العاطفة");
+    setTimeout(() => {
+      setSuccessMessage("");
+      setIsErrorMessage(false);
+    }, 3000);
+    return;
+  }
+
+  setIsSaving(true);
+  setSaveAnimation(true);
+
+  await new Promise(resolve => setTimeout(resolve, 800));
+
+  const entryData = {
+    mood,
+    note: note.trim() || "- تم التسجيل بدون ملاحظة -",
+    fajr, masjid, sunane, witr, doha, qiyam, coran, don, athkar, sabah, masae,
+    meditation, lecture, gratitude, community, sport, divertir, stress, sleep,
+    cgm, rahim, productivity, creativity, nutrition, water,
+    date: selectedDate,
+    heure: new Date().toLocaleTimeString('fr-FR', {
+      hour: '2-digit',
+      minute: '2-digit',
+      second: '2-digit'
+    })
+  };
+
+  let saveSuccess = false;
+
+  if (!isOnline) {
+    console.log("💾 Mode hors ligne - Sauvegarde locale");
+
+    let localEntries = JSON.parse(localStorage.getItem("moodEntries")) || [];
+    const existingEntryIndex = localEntries.findIndex(e => e.date === selectedDate);
+
+    if (existingEntryIndex !== -1) {
+      console.log(`🔄 Mise à jour de l'entrée locale existante pour ${selectedDate}`);
+      localEntries[existingEntryIndex] = entryData;
+      setSuccessMessage("تم تحديث البيانات محليًا");
+    } else {
+      console.log("✅ Ajout d'une nouvelle entrée locale");
+      localEntries.unshift(entryData);
+      setSuccessMessage("تم الحفظ محليًا");
     }
-  
-    setIsSaving(true);
-    setSaveAnimation(true);
-  
-    await new Promise(resolve => setTimeout(resolve, 800));
-  
-    const entryData = {
-      mood,
-      note: note.trim() || "- تم التسجيل بدون ملاحظة -",
-      fajr, masjid, sunane, witr, doha, qiyam, coran, don, athkar, sabah, masae,
-      meditation, lecture, gratitude, community, sport, divertir, stress, sleep,
-      cgm, rahim, productivity, creativity, nutrition, water,
-      date: selectedDate,
-      heure: new Date().toLocaleTimeString('fr-FR', {
-        hour: '2-digit',
-        minute: '2-digit',
-        second: '2-digit'
-      })
-    };
-  
-    if (!isOnline) {
-      console.log("Mode hors ligne - Sauvegarde locale");
-  
-      let localEntries = JSON.parse(localStorage.getItem("moodEntries")) || [];
-  
-      // Trouver l'index de l'entrée existante
-      const existingEntryIndex = localEntries.findIndex(e => e.date === selectedDate);
-  
-      if (existingEntryIndex !== -1) {
-        console.log(`🔄 Mise à jour de l'entrée locale existante pour ${selectedDate}`);
-        // Remplacer l'entrée existante
-        localEntries[existingEntryIndex] = entryData;
-        setSuccessMessage("تم تحديث البيانات محليًا");
-      } else {
-        console.log("✅ Ajout d'une nouvelle entrée locale");
-        localEntries.unshift(entryData);
-        setSuccessMessage("تم الحفظ محليًا");
+
+    localStorage.setItem("moodEntries", JSON.stringify(localEntries));
+    setIsEditMode(true);
+    setIsErrorMessage(false);
+    saveSuccess = true;
+    
+    // 🔥 Mise à jour immédiate de l'état
+    updateEntriesState(entryData, existingEntryIndex !== -1);
+    
+  } else {
+    try {
+      console.log("☁️ Mode en ligne - Sauvegarde Supabase");
+
+      const { data: existingData, error: checkError } = await supabase
+        .from('mood_entries')
+        .select('id')
+        .eq('date', selectedDate)
+        .single();
+
+      if (checkError && checkError.code !== 'PGRST116') {
+        throw checkError;
       }
-  
-      localStorage.setItem("moodEntries", JSON.stringify(localEntries));
+
+      if (existingData) {
+        console.log(`🔄 Mise à jour de l'entrée existante ID=${existingData.id}`);
+
+        const { error: updateError } = await supabase
+          .from('mood_entries')
+          .update(entryData)
+          .eq('id', existingData.id);
+
+        if (updateError) throw updateError;
+        setSuccessMessage("تم تحديث البيانات بنجاح!");
+      } else {
+        console.log("✅ Insertion d'une nouvelle entrée");
+
+        const { error: insertError } = await supabase
+          .from('mood_entries')
+          .insert([entryData]);
+
+        if (insertError) throw insertError;
+        setSuccessMessage("لقد تم التسجيل بنجاح!");
+      }
+
       setIsEditMode(true);
       setIsErrorMessage(false);
-      updateEntriesState(entryData, existingEntryIndex !== -1);
-    } else {
-      // Mode en ligne - Vérification et sauvegarde dans Supabase
-      try {
-        console.log("Mode en ligne - Vérification de l'entrée existante");
-  
-        // Récupérer une entrée existante
-        const { data: existingData, error: checkError } = await supabase
-          .from('mood_entries')
-          .select('id')
-          .eq('date', selectedDate)
-          .single();
-  
-        if (checkError && checkError.code !== 'PGRST116') {
-          throw checkError;
-        }
-  
-        if (existingData) {
-          // Mise à jour de l'entrée existante
-          console.log(`🔄 Mise à jour de l'entrée existante ID=${existingData.id}`);
-  
-          const { error: updateError } = await supabase
-            .from('mood_entries')
-            .update(entryData)
-            .eq('id', existingData.id);
-  
-          if (updateError) throw updateError;
-          setSuccessMessage("تم تحديث البيانات بنجاح!");
-        } else {
-          // Insertion d'une nouvelle entrée
-          console.log("✅ Insertion d'une nouvelle entrée");
-  
-          const { error: insertError } = await supabase
-            .from('mood_entries')
-            .insert([entryData]);
-  
-          if (insertError) throw insertError;
-          setSuccessMessage("لقد تم التسجيل بنجاح!");
-        }
-  
-        setIsEditMode(true);
-        setIsErrorMessage(false);
-        await reloadEntries();
-      } catch (error) {
-        console.error("❌ Erreur de sauvegarde Supabase:", error);
-  
-        let localEntries = JSON.parse(localStorage.getItem("moodEntries")) || [];
-        const existingEntryIndex = localEntries.findIndex(e => e.date === selectedDate);
-  
-        if (existingEntryIndex !== -1) {
-          console.log(`🔄 Mise à jour locale en fallback pour ${selectedDate}`);
-          localEntries[existingEntryIndex] = entryData;
-        } else {
-          console.log("✅ Ajout d'une nouvelle entrée locale en fallback");
-          localEntries.unshift(entryData);
-        }
-  
-        localStorage.setItem("moodEntries", JSON.stringify(localEntries));
-        setIsErrorMessage(false);
-        setSuccessMessage("خطأ - تم الحفظ محليًا");
-        updateEntriesState(entryData, existingEntryIndex !== -1);
+      saveSuccess = true;
+      
+      // 🔥 Mise à jour immédiate de l'état AVANT le rechargement complet
+      updateEntriesState(entryData, !!existingData);
+      
+      // Aussi sauvegarder localement pour cohérence
+      let localEntries = JSON.parse(localStorage.getItem("moodEntries")) || [];
+      const existingLocalIndex = localEntries.findIndex(e => e.date === selectedDate);
+      
+      if (existingLocalIndex !== -1) {
+        localEntries[existingLocalIndex] = entryData;
+      } else {
+        localEntries.unshift(entryData);
       }
+      
+      localStorage.setItem("moodEntries", JSON.stringify(localEntries));
+      
+      // Rechargement complet en arrière-plan (non bloquant)
+      setTimeout(() => {
+        reloadEntries();
+      }, 100);
+      
+    } catch (error) {
+      console.error("❌ Erreur de sauvegarde Supabase:", error);
+
+      // Fallback local
+      let localEntries = JSON.parse(localStorage.getItem("moodEntries")) || [];
+      const existingEntryIndex = localEntries.findIndex(e => e.date === selectedDate);
+
+      if (existingEntryIndex !== -1) {
+        console.log(`🔄 Mise à jour locale en fallback pour ${selectedDate}`);
+        localEntries[existingEntryIndex] = entryData;
+      } else {
+        console.log("✅ Ajout d'une nouvelle entrée locale en fallback");
+        localEntries.unshift(entryData);
+      }
+
+      localStorage.setItem("moodEntries", JSON.stringify(localEntries));
+      setIsErrorMessage(false);
+      setSuccessMessage("خطأ - تم الحفظ محليًا");
+      saveSuccess = true;
+      
+      updateEntriesState(entryData, existingEntryIndex !== -1);
     }
+  }
+
+  setIsSaving(false);
+  setSaveAnimation(false);
+  setTimeout(() => setSuccessMessage(""), 3000);
   
-    setIsSaving(false);
-    setSaveAnimation(false);
-    setTimeout(() => setSuccessMessage(""), 3000);
-    console.log("=== FIN DE LA SAUVEGARDE ===");
-  };
+  console.log(`=== FIN DE LA SAUVEGARDE (${saveSuccess ? 'SUCCÈS' : 'ÉCHEC'}) ===`);
+};
   // Fonction pour mettre à jour l'état des entrées
   const updateEntriesState = (updatedEntry, isUpdate = false) => {
-    setEntries(prev => {
-      const newEntries = [...prev];
-      
-      // Chercher si l'entrée existe déjà
-      const existingIndex = newEntries.findIndex(e => e.date === updatedEntry.date);
-      
-      if (existingIndex !== -1) {
-        console.log(`Mise à jour d'une entrée existante à l'index ${existingIndex}`);
-        newEntries[existingIndex] = updatedEntry;
-      } else {
-        console.log("Ajout d'une nouvelle entrée");
-        newEntries.unshift(updatedEntry);
-      }
-      
-      return newEntries;
-    });
-  };
+  console.log(`🔄 Mise à jour de l'état des entrées: ${isUpdate ? 'UPDATE' : 'NEW'}`);
+  
+  setEntries(prev => {
+    const newEntries = [...prev];
+    
+    // Chercher si l'entrée existe déjà
+    const existingIndex = newEntries.findIndex(e => e.date === updatedEntry.date);
+    
+    if (existingIndex !== -1) {
+      console.log(`📝 Mise à jour d'une entrée existante à l'index ${existingIndex}`);
+      newEntries[existingIndex] = { ...updatedEntry };
+    } else {
+      console.log("➕ Ajout d'une nouvelle entrée au début");
+      newEntries.unshift({ ...updatedEntry });
+    }
+    
+    // Trier par date décroissante pour maintenir l'ordre
+    newEntries.sort((a, b) => new Date(b.date) - new Date(a.date));
+    
+    console.log(`📊 Total d'entrées après mise à jour: ${newEntries.length}`);
+    return newEntries;
+  });
+};
 
   // Fonction pour recharger toutes les entrées
   const reloadEntries = async () => {
-    if (!isOnline) return;
+  if (!isOnline) {
+    // En mode hors ligne, charger depuis localStorage
+    const localEntries = JSON.parse(localStorage.getItem("moodEntries")) || [];
+    const cachedEntries = JSON.parse(localStorage.getItem('entriesCache')) || [];
     
-    try {
-      setEntriesLoading(true); // État à ajouter pour indiquer le chargement des entrées
-      
-      console.log("Rechargement de toutes les entrées...");
-      const { data, error } = await supabase
-        .from('mood_entries')
-        .select('*')
-        .order('date', { ascending: false });
-      
-      if (error) {
-        console.error("Erreur lors du rechargement des entrées:", error);
-        throw error;
+    // Fusionner les données locales et en cache
+    const allEntries = [...localEntries];
+    cachedEntries.forEach(cached => {
+      if (!allEntries.find(local => local.date === cached.date)) {
+        allEntries.push(cached);
       }
+    });
+    
+    // Trier par date décroissante
+    allEntries.sort((a, b) => new Date(b.date) - new Date(a.date));
+    setEntries(allEntries);
+    return;
+  }
+  
+  try {
+    setEntriesLoading(true);
+    
+    console.log("🔄 Rechargement forcé de toutes les entrées...");
+    const { data, error } = await supabase
+      .from('mood_entries')
+      .select('*')
+      .order('date', { ascending: false });
+    
+    if (error) {
+      console.error("Erreur lors du rechargement des entrées:", error);
+      throw error;
+    }
+    
+    console.log(`✅ ${data.length} entrées rechargées avec succès`);
+    
+    // Prétraitement des données
+    const processedData = data.map(entry => {
+      const cleanEntry = { ...entry };
       
-      console.log(`${data.length} entrées chargées avec succès`);
+      // S'assurer que toutes les valeurs numériques ne sont pas null
+      const numericFields = [
+        'fajr', 'masjid', 'sunane', 'witr', 'doha', 'qiyam', 
+        'coran', 'don', 'athkar', 'sabah', 'masae', 
+        'meditation', 'lecture', 'gratitude', 'community',
+        'sport', 'divertir', 'stress', 'sleep', 'cgm', 
+        'rahim', 'productivity', 'creativity', 'nutrition', 'water'
+      ];
       
-      // Prétraitement des données avant de mettre à jour l'état
-      const processedData = data.map(entry => {
-        // Vérifier et corriger les valeurs nulles
-        const cleanEntry = { ...entry };
-        
-        // Catégories spirituelles: s'assurer qu'il n'y a pas de valeurs null
-        const spiritualCategories = [
-          'fajr', 'masjid', 'sunane', 'witr', 'doha', 'qiyam', 
-          'coran', 'don', 'athkar', 'sabah', 'masae', 
-          'meditation', 'lecture', 'gratitude', 'community'
-        ];
-        
-        spiritualCategories.forEach(category => {
-          if (cleanEntry[category] === null) cleanEntry[category] = 0;
-        });
-        
-        // Catégories physiques/mentales
-        const physicalCategories = [
-          'sport', 'divertir', 'stress', 'sleep', 'cgm', 
-          'rahim', 'productivity', 'creativity', 'nutrition', 'water'
-        ];
-        
-        physicalCategories.forEach(category => {
-          if (cleanEntry[category] === null) cleanEntry[category] = 0;
-        });
-        
-        // S'assurer que note existe
-        if (!cleanEntry.note) cleanEntry.note = '';
-        
-        return cleanEntry;
+      numericFields.forEach(field => {
+        if (cleanEntry[field] === null || cleanEntry[field] === undefined) {
+          cleanEntry[field] = 0;
+        }
       });
       
-      // Mise à jour de l'état avec les données nettoyées
-      setEntries(processedData || []);
+      if (!cleanEntry.note) cleanEntry.note = '';
       
-      // Mise à jour du stockage local pour une utilisation hors ligne
-      localStorage.setItem('entriesCache', JSON.stringify(processedData));
-      localStorage.setItem('entriesCacheDate', new Date().toISOString());
-    } catch (error) {
-      console.error("Erreur lors du rechargement des entrées:", error);
-      
-      // En cas d'erreur, essayer d'utiliser le cache local
-      const cachedEntries = JSON.parse(localStorage.getItem('entriesCache')) || [];
-      if (cachedEntries.length > 0) {
-        console.log("Utilisation du cache local pour les entrées:", cachedEntries.length);
-        setEntries(cachedEntries);
-      }
-    } finally {
-      setEntriesLoading(false);
+      return cleanEntry;
+    });
+    
+    // Mise à jour immédiate de l'état
+    setEntries(processedData || []);
+    
+    // Mise à jour du cache local pour cohérence
+    localStorage.setItem('entriesCache', JSON.stringify(processedData));
+    localStorage.setItem('entriesCacheDate', new Date().toISOString());
+    
+    // 🔥 NOUVEAU : Vérifier si l'entrée actuelle existe dans les nouvelles données
+    const currentEntry = processedData.find(entry => entry.date === selectedDate);
+    if (currentEntry && !isEditMode) {
+      console.log("🔄 Entrée trouvée après rechargement, passage en mode édition");
+      populateFormWithData(currentEntry);
+      setIsEditMode(true);
     }
-  };
+    
+  } catch (error) {
+    console.error("❌ Erreur lors du rechargement des entrées:", error);
+    
+    // Fallback vers le cache local
+    const cachedEntries = JSON.parse(localStorage.getItem('entriesCache')) || [];
+    const localEntries = JSON.parse(localStorage.getItem("moodEntries")) || [];
+    
+    // Fusionner et utiliser comme fallback
+    const fallbackEntries = [...localEntries];
+    cachedEntries.forEach(cached => {
+      if (!fallbackEntries.find(local => local.date === cached.date)) {
+        fallbackEntries.push(cached);
+      }
+    });
+    
+    fallbackEntries.sort((a, b) => new Date(b.date) - new Date(a.date));
+    setEntries(fallbackEntries);
+  } finally {
+    setEntriesLoading(false);
+  }
+};
+const forceSyncAndReload = async () => {
+  console.log("🔄 Synchronisation forcée et rechargement...");
+  
+  if (isOnline) {
+    // D'abord synchroniser les données locales
+    await syncLocalEntries();
+    
+    // Puis recharger toutes les entrées
+    await reloadEntries();
+    
+    // Enfin, recharger l'entrée courante
+    await loadEntryForDate(selectedDate);
+  } else {
+    // En mode hors ligne, juste recharger depuis localStorage
+    const localEntries = JSON.parse(localStorage.getItem("moodEntries")) || [];
+    setEntries(localEntries);
+    loadFromLocalStorage(selectedDate);
+  }
+};
 
   // Fonction améliorée pour synchroniser les entrées locales avec Supabase
   const syncLocalEntries = async () => {
-    if (isSyncingRef.current) {
-      console.log("⚠️ Synchronisation déjà en cours, annulation.");
-      return;
-    }
+  if (isSyncingRef.current) {
+    console.log("⚠️ Synchronisation déjà en cours, annulation.");
+    return;
+  }
 
-    if (!navigator.onLine) {
-      console.log("❌ Hors ligne - Synchronisation impossible.");
-      setSuccessMessage("❌ تعذر المزامنة - أنت غير متصل");
-      setIsErrorMessage(true);
-      setTimeout(() => setSuccessMessage(""), 3000);
-      return;
-    }
+  if (!navigator.onLine) {
+    console.log("❌ Hors ligne - Synchronisation impossible.");
+    setSuccessMessage("❌ تعذر المزامنة - أنت غير متصل");
+    setIsErrorMessage(true);
+    setTimeout(() => setSuccessMessage(""), 3000);
+    return;
+  }
 
-    let localEntries = JSON.parse(localStorage.getItem("moodEntries")) || [];
-    console.log("📂 Entrées locales trouvées :", localEntries.length);
+  let localEntries = JSON.parse(localStorage.getItem("moodEntries")) || [];
+  console.log("📂 Entrées locales trouvées :", localEntries.length);
 
-    if (localEntries.length === 0) {
-      console.log("✅ Aucune entrée locale à synchroniser.");
-      setSuccessMessage("✅ لا توجد بيانات محلية للمزامنة");
-      setTimeout(() => setSuccessMessage(""), 3000);
-      return;
-    }
+  if (localEntries.length === 0) {
+    console.log("✅ Aucune entrée locale à synchroniser.");
+    setSuccessMessage("✅ لا توجد بيانات محلية للمزامنة");
+    setTimeout(() => setSuccessMessage(""), 3000);
+    return;
+  }
 
-    isSyncingRef.current = true; // Verrouille la synchronisation
-    setSyncing(true); // État à ajouter pour l'indicateur visuel de synchronisation
-    setSuccessMessage("🔄 جاري المزامنة...");
-    setIsErrorMessage(false);
+  isSyncingRef.current = true;
+  setSyncing(true);
+  setSuccessMessage("🔄 جاري المزامنة...");
+  setIsErrorMessage(false);
+  
+  console.log(`📤 Synchronisation de ${localEntries.length} entrées locales...`);
+
+  try {
+    const syncedEntries = [];
     
-    console.log(`📤 Synchronisation de ${localEntries.length} entrées locales...`);
+    // CORRECTION MAJEURE: utiliser localEntry.date au lieu de selectedDate
+    for (const localEntry of localEntries) {
+      try {
+        // Vérifier si une entrée existe déjà dans Supabase pour cette date
+        const { data: existingData, error: checkError } = await supabase
+          .from('mood_entries')
+          .select('id')
+          .eq('date', localEntry.date) // <- CORRECTION ICI
+          .single();
 
-    try {
-      // Tableau pour suivre les entrées synchronisées avec succès
-      const syncedEntries = [];
-      
-      // Pour chaque entrée locale
-      for (const localEntry of localEntries) {
-        try {
-          // Vérifier si une entrée existe déjà dans Supabase pour cette date
-          const { data: existingData, error: checkError } = await supabase
-            .from('mood_entries')
-            .select('id')
-            .eq('date', selectedDate)
-            .limit(1) // Empêcher plusieurs entrées
-            .single(); // Récupérer une seule entrée
-
-          if (checkError) {
-            console.error(`Erreur lors de la vérification de l'entrée ${localEntry.date}:`, checkError);
-            continue; // Passer à l'entrée suivante
-          }
-          
-          if (existingData) { // Si une entrée existe déjà
-            // Mise à jour de l'entrée existante
-            console.log(`Mise à jour de l'entrée pour ${localEntry.date}`);
-            const { error: updateError } = await supabase
-              .from('mood_entries')
-              .update(localEntry)
-              .eq('id', existingData[0].id);
-            
-            if (updateError) {
-              console.error(`Erreur lors de la mise à jour de l'entrée ${localEntry.date}:`, updateError);
-              continue; // Passer à l'entrée suivante
-            }
-          } else {
-            // Insertion d'une nouvelle entrée
-            console.log(`Insertion d'une nouvelle entrée pour ${localEntry.date}`);
-            const { error: insertError } = await supabase
-              .from('mood_entries')
-              .insert([localEntry]);
-            
-            if (insertError) {
-              console.error(`Erreur lors de l'insertion de l'entrée ${localEntry.date}:`, insertError);
-              continue; // Passer à l'entrée suivante
-            }
-          }
-          
-          // Si on arrive ici, l'entrée a été synchronisée avec succès
-          syncedEntries.push(localEntry.date);
-        } catch (error) {
-          console.error(`Erreur générale lors du traitement de l'entrée ${localEntry.date}:`, error);
+        if (checkError && checkError.code !== 'PGRST116') {
+          console.error(`Erreur lors de la vérification de l'entrée ${localEntry.date}:`, checkError);
+          continue;
         }
-      }
-      
-      console.log(`✅ ${syncedEntries.length}/${localEntries.length} entrées synchronisées avec succès!`);
-      
-      // Ne supprimer que les entrées synchronisées avec succès
-      if (syncedEntries.length > 0) {
-        // Filtrer les entrées locales pour ne garder que celles qui n'ont pas été synchronisées
-        const remainingEntries = localEntries.filter(entry => !syncedEntries.includes(entry.date));
         
-        if (remainingEntries.length > 0) {
-          // Il reste des entrées non synchronisées
-          localStorage.setItem("moodEntries", JSON.stringify(remainingEntries));
-          console.log(`⚠️ ${remainingEntries.length} entrées n'ont pas pu être synchronisées.`);
-          setSuccessMessage(`📡 تمت مزامنة ${syncedEntries.length} عنصر من أصل ${localEntries.length}`);
+        if (existingData) {
+          // Mise à jour de l'entrée existante
+          console.log(`Mise à jour de l'entrée pour ${localEntry.date}`);
+          const { error: updateError } = await supabase
+            .from('mood_entries')
+            .update(localEntry)
+            .eq('id', existingData.id); // <- CORRECTION ICI aussi
+          
+          if (updateError) {
+            console.error(`Erreur lors de la mise à jour de l'entrée ${localEntry.date}:`, updateError);
+            continue;
+          }
         } else {
-          // Toutes les entrées ont été synchronisées
-          localStorage.removeItem("moodEntries");
-          setSuccessMessage("📡 تمت المزامنة بنجاح!");
+          // Insertion d'une nouvelle entrée
+          console.log(`Insertion d'une nouvelle entrée pour ${localEntry.date}`);
+          const { error: insertError } = await supabase
+            .from('mood_entries')
+            .insert([localEntry]);
+          
+          if (insertError) {
+            console.error(`Erreur lors de l'insertion de l'entrée ${localEntry.date}:`, insertError);
+            continue;
+          }
         }
-      } else {
-        // Aucune entrée n'a été synchronisée
-        setSuccessMessage("❌ فشلت مزامنة جميع العناصر!");
-        setIsErrorMessage(true);
+        
+        syncedEntries.push(localEntry.date);
+      } catch (error) {
+        console.error(`Erreur générale lors du traitement de l'entrée ${localEntry.date}:`, error);
       }
-      
-      // Recharger toutes les entrées
-      await reloadEntries();
-    } catch (error) {
-      console.error("❌ Erreur générale lors de la synchronisation avec Supabase :", error);
-      setSuccessMessage("❌ حدث خطأ أثناء المزامنة!");
-      setIsErrorMessage(true);
-    } finally {
-      isSyncingRef.current = false; // Déverrouille la synchronisation
-      setSyncing(false); // Fin de l'indicateur visuel
-      
-      // Effacer le message après un délai
-      setTimeout(() => setSuccessMessage(""), 3000);
     }
-  };
+    
+    console.log(`✅ ${syncedEntries.length}/${localEntries.length} entrées synchronisées avec succès!`);
+    
+    if (syncedEntries.length > 0) {
+      const remainingEntries = localEntries.filter(entry => !syncedEntries.includes(entry.date));
+      
+      if (remainingEntries.length > 0) {
+        localStorage.setItem("moodEntries", JSON.stringify(remainingEntries));
+        console.log(`⚠️ ${remainingEntries.length} entrées n'ont pas pu être synchronisées.`);
+        setSuccessMessage(`📡 تمت مزامنة ${syncedEntries.length} عنصر من أصل ${localEntries.length}`);
+      } else {
+        localStorage.removeItem("moodEntries");
+        setSuccessMessage("📡 تمت المزامنة بنجاح!");
+      }
+    } else {
+      setSuccessMessage("❌ فشلت مزامنة جميع العناصر!");
+      setIsErrorMessage(true);
+    }
+    
+    // Recharger toutes les entrées ET mettre à jour l'état local
+    await reloadEntries();
+    
+  } catch (error) {
+    console.error("❌ Erreur générale lors de la synchronisation avec Supabase :", error);
+    setSuccessMessage("❌ حدث خطأ أثناء المزامنة!");
+    setIsErrorMessage(true);
+  } finally {
+    isSyncingRef.current = false;
+    setSyncing(false);
+    setTimeout(() => setSuccessMessage(""), 3000);
+  }
+};
 
   // Fonction pour installer l'application en tant que PWA
   const installPWA = async () => {
@@ -1138,15 +1229,20 @@ const handleEmotionClick = async (emotionName) => {
   }, []);
 
   // Effet séparé pour la gestion online/offline
+  // 6. Effet pour synchronisation automatique quand on revient en ligne
   useEffect(() => {
-    const handleOnline = () => {
-      console.log("✅ Connexion rétablie - Tentative de synchronisation...");
+    const handleOnline = async () => {
+      console.log("🌐 Connexion rétablie - Synchronisation automatique...");
       setIsOnline(true);
-      syncLocalEntries();
+      
+      // Attendre un peu pour que la connexion soit stable
+      setTimeout(async () => {
+        await forceSyncAndReload();
+      }, 1000);
     };
 
     const handleOffline = () => {
-      console.log("❌ Connexion perdue");
+      console.log("📴 Connexion perdue");
       setIsOnline(false);
     };
 
@@ -1157,8 +1253,24 @@ const handleEmotionClick = async (emotionName) => {
       window.removeEventListener("online", handleOnline);
       window.removeEventListener("offline", handleOffline);
     };
-  }, []);
+  }, [selectedDate]); // Ajouter selectedDate comme dépendance
+// 7. Effet pour recharger les données quand la date change
+useEffect(() => {
+  if (selectedDate) {
+    console.log(`📅 Date changée vers: ${selectedDate}`);
+    loadEntryForDate(selectedDate);
+  }
+}, [selectedDate, entries.length]); // Ajouter entries.length pour réagir aux changements
 
+// 8. Fonction utilitaire pour débugger l'état
+const debugCurrentState = () => {
+  console.log("🐛 DEBUG - État actuel:");
+  console.log("- Date sélectionnée:", selectedDate);
+  console.log("- Mode édition:", isEditMode);
+  console.log("- Nombre d'entrées:", entries.length);
+  console.log("- Entrée pour date actuelle:", entries.find(e => e.date === selectedDate));
+  console.log("- Données localStorage:", JSON.parse(localStorage.getItem("moodEntries") || "[]").length);
+};
   // Chargement des définitions des émotions
   useEffect(() => {
     const loadEmotionDefinitions = async () => {
@@ -1712,7 +1824,7 @@ const renderInputTabNavigation = () => {
       </div>
       
       {/* Styles CSS pour les animations des émotions */}
-      <style jsx>{`
+      <style>{`
         .emotion-selected {
           transform: scale(1.2);
           transition: transform 0.2s ease;
@@ -2316,7 +2428,7 @@ const renderInputContent = () => {
       </nav>
       
       {/* Styles CSS globaux pour l'application */}
-      <style jsx global>{`
+      <style>{`
         @import url('https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700&display=swap');
         
         .font-arabic {
